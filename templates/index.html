@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ selected_station }}駅 戸建て物件一覧</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            padding: 20px;
+            font-size: 13px;
+        }
+        h1 { text-align: center; margin-bottom: 10px; color: #2c3e50; font-size: 1.3em; }
+        .summary { text-align: center; margin-bottom: 16px; color: #666; }
+
+        /* 駅選択 */
+        .station-form {
+            text-align: center; margin-bottom: 20px;
+        }
+        .station-form select {
+            padding: 6px 12px; font-size: 14px; border: 1px solid #ccc;
+            border-radius: 4px; margin-right: 8px;
+        }
+        .station-form button {
+            padding: 6px 20px; background: #2c3e50; color: #fff;
+            border: none; border-radius: 4px; cursor: pointer; font-size: 14px;
+        }
+        .station-form button:hover { background: #34495e; }
+
+        /* グラフ */
+        .charts {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 16px; margin-bottom: 24px; max-width: 1100px; margin-left: auto; margin-right: auto;
+        }
+        .chart-box {
+            background: #fff; border-radius: 8px; padding: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .chart-box h3 { font-size: 13px; color: #555; margin-bottom: 8px; text-align: center; }
+        .chart-box canvas { width: 100% !important; height: 260px !important; }
+
+        /* テーブル */
+        .table-wrapper {
+            overflow-x: auto; background: #fff;
+            border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        table { width: 100%; border-collapse: collapse; }
+        thead { background: #2c3e50; color: #fff; }
+        th {
+            padding: 8px 6px; text-align: center; cursor: pointer;
+            user-select: none; white-space: nowrap; font-size: 12px;
+        }
+        th:hover { background: #34495e; }
+        th .arrow { font-size: 10px; margin-left: 2px; }
+        td { padding: 6px; border-bottom: 1px solid #eee; white-space: nowrap; text-align: center; }
+        tr:hover td { background: #f0f7ff; }
+        td.r { text-align: right; }
+        td.l { text-align: left; }
+        td.price { text-align: right; font-weight: bold; }
+        td.tsubo { text-align: right; font-weight: bold; color: #e74c3c; }
+        td.name { text-align: left; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+        a { color: #2980b9; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .nd { color: #aaa; }
+
+        @media (max-width: 768px) {
+            .charts { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <h1>{{ selected_station }}駅 戸建て物件一覧</h1>
+    <p class="summary">徒歩15分以内（新築・中古） — {{ properties|length }}件</p>
+
+    <!-- 駅選択フォーム -->
+    <div class="station-form">
+        <form method="get">
+            <select name="station">
+                {% for st in stations %}
+                <option value="{{ st }}" {% if st == selected_station %}selected{% endif %}>{{ st }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit">検索</button>
+        </form>
+    </div>
+
+    <!-- グラフ -->
+    <div class="charts">
+        <div class="chart-box">
+            <h3>坪単価の頻度分布（万円/坪）</h3>
+            <canvas id="histChart"></canvas>
+        </div>
+        <div class="chart-box">
+            <h3>各変数と価格の相関係数</h3>
+            <canvas id="corrChart"></canvas>
+        </div>
+        <div class="chart-box">
+            <h3>土地面積 vs 価格</h3>
+            <canvas id="scatterLand"></canvas>
+        </div>
+        <div class="chart-box">
+            <h3>建物面積 vs 価格</h3>
+            <canvas id="scatterBuilding"></canvas>
+        </div>
+        <div class="chart-box">
+            <h3>築年数 vs 価格（新築=0年）</h3>
+            <canvas id="scatterAge"></canvas>
+        </div>
+    </div>
+
+    <!-- テーブル -->
+    <div class="table-wrapper">
+        <table id="t">
+            <thead><tr>
+                <th onclick="s(0)">No.<span class="arrow"></span></th>
+                <th onclick="s(1)">区分<span class="arrow"></span></th>
+                <th onclick="s(2,1)">価格(万)<span class="arrow"></span></th>
+                <th onclick="s(3)">所在地<span class="arrow"></span></th>
+                <th onclick="s(4,1)">徒歩<span class="arrow"></span></th>
+                <th onclick="s(5,1)">土地m²<span class="arrow"></span></th>
+                <th onclick="s(6,1)">建物m²<span class="arrow"></span></th>
+                <th onclick="s(7)">間取り<span class="arrow"></span></th>
+                <th onclick="s(8,1)">階数<span class="arrow"></span></th>
+                <th onclick="s(9)">築年月<span class="arrow"></span></th>
+                <th onclick="s(10,1)">坪単価<span class="arrow"></span></th>
+                <th onclick="s(11)">物件名<span class="arrow"></span></th>
+            </tr></thead>
+            <tbody>
+                {% for p in properties %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ p.category or '—' }}</td>
+                    <td class="price">{% if p.price %}{{ "{:,}".format(p.price) }}{% else %}<span class="nd">—</span>{% endif %}</td>
+                    <td class="l">{{ p.address or '—' }}</td>
+                    <td class="r">{{ p.walk_minutes or '—' }}</td>
+                    <td class="r">{% if p.land_area %}{{ p.land_area }}{% else %}<span class="nd">—</span>{% endif %}</td>
+                    <td class="r">{% if p.building_area %}{{ p.building_area }}{% else %}<span class="nd">—</span>{% endif %}</td>
+                    <td>{{ p.layout or '—' }}</td>
+                    <td class="r">{% if p.floors %}{{ p.floors }}{% else %}<span class="nd">—</span>{% endif %}</td>
+                    <td>{{ p.age or '—' }}</td>
+                    <td class="tsubo">{% if p.tsubo_tanka %}{{ "{:,.1f}".format(p.tsubo_tanka) }}{% else %}<span class="nd">—</span>{% endif %}</td>
+                    <td class="name">{% if p.url %}<a href="{{ p.url }}" target="_blank">{{ p.name or '—' }}</a>{% else %}{{ p.name or '—' }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+    // --- ソート ---
+    let d={};
+    function s(c,n){
+        const tb=document.getElementById('t').tBodies[0];
+        const rows=Array.from(tb.rows);
+        const dir=d[c]=!(d[c]||false);
+        rows.sort((a,b)=>{
+            let va=a.cells[c].textContent.trim().replace(/,/g,'');
+            let vb=b.cells[c].textContent.trim().replace(/,/g,'');
+            if(va==='—')va=n?'\uffff':'\uffff';
+            if(vb==='—')vb=n?'\uffff':'\uffff';
+            if(n){va=parseFloat(va)||Infinity;vb=parseFloat(vb)||Infinity;return dir?va-vb:vb-va;}
+            return dir?va.localeCompare(vb,'ja'):vb.localeCompare(va,'ja');
+        });
+        rows.forEach((r,i)=>{r.cells[0].textContent=i+1;tb.appendChild(r);});
+    }
+
+    // --- グラフ用データ ---
+    const props = [
+        {% for p in properties %}
+        {
+            price: {{ p.price or 'null' }},
+            land: {{ p.land_area or 'null' }},
+            building: {{ p.building_area or 'null' }},
+            walk: {{ p.walk_minutes or 'null' }},
+            floors: {{ p.floors or 'null' }},
+            tsubo: {{ p.tsubo_tanka or 'null' }},
+            ageYears: {{ p.age_years if p.age_years is not none else 'null' }}
+        },
+        {% endfor %}
+    ];
+
+    // --- 1) 坪単価ヒストグラム ---
+    const tsuboVals = props.map(p=>p.tsubo).filter(v=>v!==null);
+    if(tsuboVals.length>0){
+        const mn=Math.floor(Math.min(...tsuboVals)/50)*50;
+        const mx=Math.ceil(Math.max(...tsuboVals)/50)*50;
+        const bins=[]; const labels=[];
+        for(let b=mn;b<mx;b+=50){bins.push(0);labels.push(b+'–'+(b+50));}
+        tsuboVals.forEach(v=>{const i=Math.min(Math.floor((v-mn)/50),bins.length-1);bins[i]++;});
+        new Chart(document.getElementById('histChart'),{
+            type:'bar',
+            data:{labels,datasets:[{label:'件数',data:bins,backgroundColor:'rgba(231,76,60,0.6)',borderColor:'#e74c3c',borderWidth:1}]},
+            options:{plugins:{legend:{display:false}},scales:{x:{title:{display:true,text:'万円/坪'}},y:{title:{display:true,text:'件数'},beginAtZero:true,ticks:{stepSize:1}}}}
+        });
+    }
+
+    // --- 2) 相関係数バーチャート ---
+    function corr(xs,ys){
+        const n=xs.length; if(n<3)return 0;
+        const mx=xs.reduce((a,b)=>a+b,0)/n, my=ys.reduce((a,b)=>a+b,0)/n;
+        let num=0,dx=0,dy=0;
+        for(let i=0;i<n;i++){const x=xs[i]-mx,y=ys[i]-my;num+=x*y;dx+=x*x;dy+=y*y;}
+        return dx&&dy?num/Math.sqrt(dx*dy):0;
+    }
+    const pairs=[
+        {label:'土地面積',key:'land'},{label:'建物面積',key:'building'},
+        {label:'徒歩(分)',key:'walk'},{label:'階数',key:'floors'},{label:'築年数',key:'ageYears'},{label:'坪単価',key:'tsubo'}
+    ];
+    const corrVals=pairs.map(({key})=>{
+        const valid=props.filter(p=>p.price!==null&&p[key]!==null);
+        return corr(valid.map(p=>p[key]),valid.map(p=>p.price));
+    });
+    new Chart(document.getElementById('corrChart'),{
+        type:'bar',
+        data:{labels:pairs.map(p=>p.label),datasets:[{label:'相関係数',data:corrVals.map(v=>Math.round(v*1000)/1000),
+            backgroundColor:corrVals.map(v=>v>=0?'rgba(52,152,219,0.6)':'rgba(231,76,60,0.6)'),
+            borderColor:corrVals.map(v=>v>=0?'#3498db':'#e74c3c'),borderWidth:1}]},
+        options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{min:-1,max:1,title:{display:true,text:'相関係数'}}}}
+    });
+
+    // --- 3) 散布図: 土地面積 vs 価格 ---
+    const landData=props.filter(p=>p.price!==null&&p.land!==null).map(p=>({x:p.land,y:p.price}));
+    new Chart(document.getElementById('scatterLand'),{
+        type:'scatter',
+        data:{datasets:[{label:'物件',data:landData,backgroundColor:'rgba(52,152,219,0.5)',pointRadius:5}]},
+        options:{plugins:{legend:{display:false}},scales:{x:{title:{display:true,text:'土地面積 m²'}},y:{title:{display:true,text:'価格（万円）'}}}}
+    });
+
+    // --- 4) 散布図: 建物面積 vs 価格 ---
+    const bldData=props.filter(p=>p.price!==null&&p.building!==null).map(p=>({x:p.building,y:p.price}));
+    new Chart(document.getElementById('scatterBuilding'),{
+        type:'scatter',
+        data:{datasets:[{label:'物件',data:bldData,backgroundColor:'rgba(46,204,113,0.5)',pointRadius:5}]},
+        options:{plugins:{legend:{display:false}},scales:{x:{title:{display:true,text:'建物面積 m²'}},y:{title:{display:true,text:'価格（万円）'}}}}
+    });
+
+    // --- 5) 散布図: 築年数 vs 価格 ---
+    const ageData=props.filter(p=>p.price!==null&&p.ageYears!==null).map(p=>({x:p.ageYears,y:p.price}));
+    new Chart(document.getElementById('scatterAge'),{
+        type:'scatter',
+        data:{datasets:[{label:'物件',data:ageData,backgroundColor:'rgba(155,89,182,0.5)',pointRadius:5}]},
+        options:{plugins:{legend:{display:false}},scales:{x:{title:{display:true,text:'築年数'},min:0},y:{title:{display:true,text:'価格（万円）'}}}}
+    });
+    </script>
+</body>
+</html>
