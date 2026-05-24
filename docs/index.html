@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SUUMO 坪単価トレンド</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Hiragino Sans", "Meiryo", sans-serif; background: #f5f6fa; color: #2d3436; }
+    header { background: #0984e3; color: #fff; padding: 16px 24px; }
+    header h1 { font-size: 1.3rem; font-weight: 700; }
+    header p { font-size: 0.85rem; opacity: 0.85; margin-top: 2px; }
+    main { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+    .card { background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.08); padding: 20px; margin-bottom: 24px; }
+    .card h2 { font-size: 1rem; font-weight: 700; margin-bottom: 16px; color: #0984e3; }
+    .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .tab { padding: 6px 14px; border-radius: 20px; border: 2px solid #0984e3; color: #0984e3;
+             background: #fff; cursor: pointer; font-size: 0.85rem; transition: all .2s; }
+    .tab.active { background: #0984e3; color: #fff; }
+    .tab:hover:not(.active) { background: #e8f4fd; }
+    .chart-wrap { position: relative; height: 320px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    th { background: #f0f6ff; text-align: left; padding: 10px 12px; border-bottom: 2px solid #dfe6e9; }
+    td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; }
+    tr:hover td { background: #f8fbff; }
+    .num { text-align: right; }
+    .avg { font-weight: 700; color: #0984e3; }
+    @media (max-width: 600px) {
+      table { font-size: 0.78rem; }
+      th, td { padding: 8px 6px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🏠 SUUMO 坪単価トレンド</h1>
+    <p>東京・世田谷エリア 月次自動集計</p>
+  </header>
+  <main>
+    <div class="card">
+      <h2>📈 坪単価推移（月次）</h2>
+      <div class="tabs" id="tabs"></div>
+      <div class="chart-wrap">
+        <canvas id="chart"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <h2>📋 最新データ一覧（坪単価 安い順）</h2>
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>駅名</th>
+              <th class="num">件数</th>
+              <th class="num">坪単価 平均</th>
+              <th class="num">中央値</th>
+              <th class="num">最低</th>
+              <th class="num">最高</th>
+              <th class="num">取得日</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>二子玉川</td>
+              <td class="num">18</td>
+              <td class="num avg">562.2万円</td>
+              <td class="num">557.0万円</td>
+              <td class="num">368.9万円</td>
+              <td class="num">857.9万円</td>
+              <td class="num">2026-05-24</td>
+            </tr>
+            <tr>
+              <td>駒沢大学</td>
+              <td class="num">39</td>
+              <td class="num avg">570.8万円</td>
+              <td class="num">535.4万円</td>
+              <td class="num">282.6万円</td>
+              <td class="num">1122.4万円</td>
+              <td class="num">2026-05-24</td>
+            </tr>
+            <tr>
+              <td>自由が丘</td>
+              <td class="num">31</td>
+              <td class="num avg">610.9万円</td>
+              <td class="num">634.9万円</td>
+              <td class="num">317.3万円</td>
+              <td class="num">952.2万円</td>
+              <td class="num">2026-05-24</td>
+            </tr>
+            <tr>
+              <td>三軒茶屋</td>
+              <td class="num">34</td>
+              <td class="num avg">641.2万円</td>
+              <td class="num">642.8万円</td>
+              <td class="num">332.0万円</td>
+              <td class="num">936.0万円</td>
+              <td class="num">2026-05-24</td>
+            </tr>
+            <tr>
+              <td>下北沢</td>
+              <td class="num">29</td>
+              <td class="num avg">654.7万円</td>
+              <td class="num">645.4万円</td>
+              <td class="num">395.3万円</td>
+              <td class="num">851.4万円</td>
+              <td class="num">2026-05-24</td>
+            </tr>
+            <tr>
+              <td>学芸大学</td>
+              <td class="num">49</td>
+              <td class="num avg">688.5万円</td>
+              <td class="num">699.6万円</td>
+              <td class="num">130.4万円</td>
+              <td class="num">1048.6万円</td>
+              <td class="num">2026-05-24</td>
+            </tr>
+            <tr>
+              <td>目黒</td>
+              <td class="num">16</td>
+              <td class="num avg">888.4万円</td>
+              <td class="num">862.4万円</td>
+              <td class="num">584.6万円</td>
+              <td class="num">1390.3万円</td>
+              <td class="num">2026-05-24</td>
+            </tr>
+            <tr>
+              <td>中目黒</td>
+              <td class="num">36</td>
+              <td class="num avg">894.8万円</td>
+              <td class="num">860.8万円</td>
+              <td class="num">266.9万円</td>
+              <td class="num">2247.4万円</td>
+              <td class="num">2026-05-24</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+  <script>
+    const DATA = {"三軒茶屋": {"dates": ["2026-05-24"], "avg": [641.2], "median": [642.8], "count": [34]}, "下北沢": {"dates": ["2026-05-24"], "avg": [654.7], "median": [645.4], "count": [29]}, "中目黒": {"dates": ["2026-05-24"], "avg": [894.8], "median": [860.8], "count": [36]}, "二子玉川": {"dates": ["2026-05-24"], "avg": [562.2], "median": [557.0], "count": [18]}, "学芸大学": {"dates": ["2026-05-24"], "avg": [688.5], "median": [699.6], "count": [49]}, "目黒": {"dates": ["2026-05-24"], "avg": [888.4], "median": [862.4], "count": [16]}, "自由が丘": {"dates": ["2026-05-24"], "avg": [610.9], "median": [634.9], "count": [31]}, "駒沢大学": {"dates": ["2026-05-24"], "avg": [570.8], "median": [535.4], "count": [39]}};
+    const STATIONS = ["三軒茶屋", "下北沢", "中目黒", "二子玉川", "学芸大学", "目黒", "自由が丘", "駒沢大学"];
+
+    const COLORS = [
+      "#0984e3","#e17055","#00b894","#6c5ce7","#fdcb6e",
+      "#d63031","#00cec9","#fd79a8","#2d3436","#55efc4"
+    ];
+
+    const ctx = document.getElementById("chart").getContext("2d");
+    let chart = null;
+    let activeStation = STATIONS[0] || null;
+
+    function buildTabs() {
+      const tabsEl = document.getElementById("tabs");
+      STATIONS.forEach((s, i) => {
+        const btn = document.createElement("button");
+        btn.className = "tab" + (s === activeStation ? " active" : "");
+        btn.textContent = s;
+        btn.onclick = () => {
+          activeStation = s;
+          document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+          btn.classList.add("active");
+          renderChart();
+        };
+        tabsEl.appendChild(btn);
+      });
+    }
+
+    function renderChart() {
+      if (!activeStation || !DATA[activeStation]) return;
+      const d = DATA[activeStation];
+      if (chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: d.dates,
+          datasets: [
+            {
+              label: "坪単価 平均（万円/坪）",
+              data: d.avg,
+              borderColor: "#0984e3",
+              backgroundColor: "rgba(9,132,227,.1)",
+              borderWidth: 2,
+              pointRadius: 5,
+              fill: true,
+              tension: 0.3,
+            },
+            {
+              label: "坪単価 中央値（万円/坪）",
+              data: d.median,
+              borderColor: "#e17055",
+              backgroundColor: "rgba(225,112,85,.05)",
+              borderWidth: 2,
+              pointRadius: 4,
+              fill: false,
+              tension: 0.3,
+              borderDash: [5, 4],
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: "top" },
+            title: {
+              display: true,
+              text: activeStation + " 坪単価推移",
+              font: { size: 14 },
+            },
+            tooltip: {
+              callbacks: {
+                afterBody: (items) => {
+                  const idx = items[0]?.dataIndex;
+                  const cnt = d.count[idx];
+                  return cnt != null ? ["件数: " + cnt + "件"] : [];
+                },
+              },
+            },
+          },
+          scales: {
+            y: {
+              title: { display: true, text: "万円/坪" },
+              beginAtZero: false,
+            },
+          },
+        },
+      });
+    }
+
+    buildTabs();
+    renderChart();
+  </script>
+</body>
+</html>
